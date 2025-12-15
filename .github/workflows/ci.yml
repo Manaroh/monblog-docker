@@ -21,7 +21,7 @@ jobs:
 
       - name: PHP syntax check
         run: |
-          echo "🔍 Vérification syntaxe PHP"
+          echo "Vérification syntaxe PHP"
           php -l index.php
           php -l Modele.php
           php -l vueAccueil.php
@@ -41,5 +41,53 @@ jobs:
 
       - name: Build Docker image
         run: |
-          echo "🐳 Build Docker image"
+          echo " Build Docker image"
           docker build -t monblog-docker .
+
+  mysql_test:
+    name: Test MySQL connection
+    runs-on: ubuntu-latest
+    needs: lint_php
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: monblog
+          MYSQL_USER: bloguser
+          MYSQL_PASSWORD: blogpass
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP 8.2 + pdo_mysql
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.2"
+          extensions: pdo_mysql
+
+      - name: Wait for MySQL
+        run: |
+          echo "Waiting for MySQL..."
+          sleep 20
+
+      - name: Test PDO connection
+        run: |
+          php -r "
+          new PDO(
+            'mysql:host=127.0.0.1;dbname=monblog;charset=utf8',
+            'bloguser',
+            'blogpass',
+            [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
+          );
+          echo ' MySQL connection OK';
+          "
