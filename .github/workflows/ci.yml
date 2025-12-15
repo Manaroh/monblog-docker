@@ -41,11 +41,11 @@ jobs:
 
       - name: Build Docker image
         run: |
-          echo " Build Docker image"
+          echo "Build Docker image"
           docker build -t monblog-docker .
 
   mysql_test:
-    name: Test MySQL connection
+    name: Test MySQL connection + schema
     runs-on: ubuntu-latest
     needs: lint_php
 
@@ -89,5 +89,25 @@ jobs:
             'blogpass',
             [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
           );
-          echo ' MySQL connection OK';
+          echo 'MySQL connection OK';
+          "
+
+      - name: Init database schema
+        run: |
+          mysql -h 127.0.0.1 -u bloguser -pblogpass monblog < database/init.sql
+
+      - name: Test SELECT query
+        run: |
+          php -r "
+          \$pdo = new PDO(
+            'mysql:host=127.0.0.1;dbname=monblog;charset=utf8',
+            'bloguser',
+            'blogpass'
+          );
+          \$stmt = \$pdo->query('SELECT COUNT(*) FROM T_BILLET');
+          \$count = \$stmt->fetchColumn();
+          if (\$count < 1) {
+            throw new Exception('No data found in T_BILLET');
+          }
+          echo \"SELECT OK, billets = \$count\";
           "
